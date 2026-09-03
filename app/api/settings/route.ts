@@ -48,7 +48,7 @@ export async function PATCH(request: Request) {
     .filter((entry): entry is readonly [SettingKey, string] => typeof entry[1] === 'string')
     .map(([key, value]) => [key, value.trim()] as const);
   if (!entries.length) return Response.json({ error: '변경할 내용이 없어요.' }, { status: 400 });
-  const required = new Set<SettingKey>(['artistName', 'artistMark', 'heroTitle', 'worksTitle']);
+  const required = new Set<SettingKey>(['artistName', 'artistMark', 'worksTitle']);
   if (entries.some(([key, value]) => required.has(key) && !value)) return Response.json({ error: '활동명과 주요 제목은 비워둘 수 없어요.' }, { status: 400 });
   const assignments = entries.map(([key]) => `${fieldMap[key]} = ?`).join(', ');
   const values = entries.map(([, value]) => value);

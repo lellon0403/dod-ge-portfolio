@@ -3,16 +3,16 @@ import './globals.css';
 
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.SITE_URL || 'http://localhost:3000'),
-  title: 'DodGe — Character & Fan Art',
+  title: 'DodGe — 일러스트·팬아트',
   description: '일러스트레이터 DodGe의 캐릭터, 애니메이션 스타일, 팬아트 포트폴리오.',
   openGraph: {
-    title: 'DodGe — Character & Fan Art',
+    title: 'DodGe — 일러스트·팬아트',
     description: '캐릭터와 좋아하는 순간을 그리는 DodGe의 일러스트 아카이브.',
     type: 'website',
   },
   twitter: {
     card: 'summary',
-    title: 'DodGe — Character & Fan Art',
+    title: 'DodGe — 일러스트·팬아트',
     description: '캐릭터와 좋아하는 순간을 그리는 DodGe의 일러스트 아카이브.',
   },
 };

@@ -12,7 +12,7 @@ export async function POST(request: Request) {
   if (!(await isAdminRequest(request))) return Response.json({ error: '로그인이 필요해요.' }, { status: 401 });
   await ensurePortfolioSchema();
   const body = await request.json().catch(() => ({})) as { name?: string };
-  const name = body.name?.trim().toUpperCase();
+  const name = body.name?.trim();
   if (!name) return Response.json({ error: '카테고리 이름을 입력해 주세요.' }, { status: 400 });
   const max = await env.DB.prepare('SELECT COALESCE(MAX(sort_order), -1) AS value FROM categories').first<{ value: number }>();
   const category = { id: crypto.randomUUID(), name, sortOrder: (max?.value ?? -1) + 1 };
@@ -28,7 +28,7 @@ export async function PATCH(request: Request) {
   if (!(await isAdminRequest(request))) return Response.json({ error: '로그인이 필요해요.' }, { status: 401 });
   await ensurePortfolioSchema();
   const body = await request.json().catch(() => ({})) as { id?: string; oldName?: string; name?: string };
-  const name = body.name?.trim().toUpperCase();
+  const name = body.name?.trim();
   if (!body.id || !body.oldName || !name) return Response.json({ error: '카테고리 이름을 확인해 주세요.' }, { status: 400 });
   try {
     await env.DB.batch([
