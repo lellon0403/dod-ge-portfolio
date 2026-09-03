@@ -4,10 +4,12 @@ import {
   ArrowUpRight, Check, GripVertical, LockKeyhole, LogOut,
   Menu, Pencil, Plus, Save, ShieldCheck, SlidersHorizontal, Sparkles, Trash2, Upload, X,
 } from 'lucide-react';
-import { FormEvent, useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import type { SubmitEvent } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { getSupabaseBrowser } from '@/lib/supabase-browser';
 
 type Project = {
   id: string;
@@ -181,7 +183,7 @@ function AdminOverlay({ authenticated, setAuthenticated, projects, categories, s
 
   useEffect(() => setOrdered(projects), [projects]);
 
-  async function login(event: FormEvent) {
+  async function login(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault(); setBusy(true); setError('');
     const response = await fetch('/api/auth', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ code }) });
     const body = await response.json(); setBusy(false);
@@ -191,22 +193,61 @@ function AdminOverlay({ authenticated, setAuthenticated, projects, categories, s
 
   async function logout() { await fetch('/api/auth', { method: 'DELETE' }); setAuthenticated(false); }
 
-  async function upload(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault(); setBusy(true); setError('');
-    const response = await fetch('/api/projects', { method: 'POST', body: new FormData(event.currentTarget) });
-    const body = await response.json(); setBusy(false);
-    if (!response.ok) return setError(body.error || '업로드하지 못했어요.');
-    event.currentTarget.reset(); await onRefresh();
+  async function uploadImage(file: File) {
+    const prepareResponse = await fetch('/api/uploads', {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ filename: file.name, contentType: file.type, size: file.size }),
+    });
+    const prepared = await prepareResponse.json();
+    if (!prepareResponse.ok) throw new Error(prepared.error || '이미지 업로드를 준비하지 못했어요.');
+    const { error: uploadError } = await getSupabaseBrowser().storage
+      .from('portfolio-images').uploadToSignedUrl(prepared.path, prepared.token, file, { contentType: file.type });
+    if (uploadError) throw new Error('이미지를 올리지 못했어요. 잠시 후 다시 시도해 주세요.');
+    return prepared.path as string;
   }
 
-  async function saveEdit(event: FormEvent<HTMLFormElement>) {
+  async function upload(event: SubmitEvent<HTMLFormElement>) {
+    event.preventDefault(); setBusy(true); setError('');
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
+    try {
+      const file = form.get('image');
+      if (!(file instanceof File) || !file.size) throw new Error('이미지 파일을 선택해 주세요.');
+      const imageKey = await uploadImage(file);
+      const response = await fetch('/api/projects', {
+        method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          imageKey, title: form.get('title'), category: form.get('category'), year: form.get('year'),
+          description: form.get('description'), layout: form.get('layout'),
+        }),
+      });
+      const body = await response.json();
+      if (!response.ok) throw new Error(body.error || '업로드하지 못했어요.');
+      formElement.reset(); setNotice('새 작품을 올렸어요.'); await onRefresh();
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : '업로드하지 못했어요.');
+    } finally { setBusy(false); }
+  }
+
+  async function saveEdit(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault(); if (!editing) return; setBusy(true); setError('');
     const form = new FormData(event.currentTarget);
-    form.set('id', editing.id);
-    const response = await fetch('/api/projects', { method: 'PATCH', body: form });
-    const body = await response.json(); setBusy(false);
-    if (!response.ok) return setError(body.error || '수정하지 못했어요.');
-    setEditing(null); setNotice('작품 정보를 저장했어요.'); await onRefresh();
+    try {
+      const file = form.get('image');
+      const imageKey = file instanceof File && file.size ? await uploadImage(file) : undefined;
+      const response = await fetch('/api/projects', {
+        method: 'PATCH', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          id: editing.id, imageKey, title: form.get('title'), category: form.get('category'), year: form.get('year'),
+          description: form.get('description'), layout: form.get('layout'),
+        }),
+      });
+      const body = await response.json();
+      if (!response.ok) throw new Error(body.error || '수정하지 못했어요.');
+      setEditing(null); setNotice('작품 정보를 저장했어요.'); await onRefresh();
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : '수정하지 못했어요.');
+    } finally { setBusy(false); }
   }
 
   async function removeProject(id: string) {
@@ -223,7 +264,7 @@ function AdminOverlay({ authenticated, setAuthenticated, projects, categories, s
     if (!response.ok) setError('순서를 저장하지 못했어요.'); else await onRefresh();
   }
 
-  async function addCategory(event: FormEvent) {
+  async function addCategory(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault(); if (!newCategory.trim()) return;
     const response = await fetch('/api/categories', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ name: newCategory }) });
     const body = await response.json(); if (!response.ok) setError(body.error); else { setNewCategory(''); await onRefresh(); }
@@ -239,7 +280,7 @@ function AdminOverlay({ authenticated, setAuthenticated, projects, categories, s
     const body = await response.json(); if (!response.ok) setError(body.error); else { setNotice('카테고리 이름을 바꿨어요.'); await onRefresh(); }
   }
 
-  async function saveSettings(event: FormEvent<HTMLFormElement>) {
+  async function saveSettings(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault(); setBusy(true); setError(''); setNotice('');
     const values = Object.fromEntries(new FormData(event.currentTarget).entries());
     const response = await fetch('/api/settings', { method: 'PATCH', headers: { 'content-type': 'application/json' }, body: JSON.stringify(values) });
@@ -249,12 +290,15 @@ function AdminOverlay({ authenticated, setAuthenticated, projects, categories, s
     setNotice('사이트 문구를 저장했어요. 화면에 바로 반영했습니다.');
   }
 
-  async function changeCode(event: FormEvent<HTMLFormElement>) {
+  async function changeCode(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault(); setBusy(true); setError(''); setNotice('');
     const form = new FormData(event.currentTarget);
-    const currentCode = String(form.get('currentCode') || '');
-    const newCode = String(form.get('newCode') || '');
-    const confirmCode = String(form.get('confirmCode') || '');
+    const currentCodeValue = form.get('currentCode');
+    const newCodeValue = form.get('newCode');
+    const confirmCodeValue = form.get('confirmCode');
+    const currentCode = typeof currentCodeValue === 'string' ? currentCodeValue : '';
+    const newCode = typeof newCodeValue === 'string' ? newCodeValue : '';
+    const confirmCode = typeof confirmCodeValue === 'string' ? confirmCodeValue : '';
     if (newCode !== confirmCode) { setBusy(false); return setError('새 코드가 서로 일치하지 않아요.'); }
     const response = await fetch('/api/auth', { method: 'PATCH', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ currentCode, newCode }) });
     const body = await response.json(); setBusy(false);
@@ -314,7 +358,7 @@ function CategoryRow({ category, onRename, onRemove }: { category: Category; onR
   );
 }
 
-function SiteSettingsForm({ settings, busy, onSubmit }: { settings: SiteSettings; busy: boolean; onSubmit: (event: FormEvent<HTMLFormElement>) => void }) {
+function SiteSettingsForm({ settings, busy, onSubmit }: { settings: SiteSettings; busy: boolean; onSubmit: (event: SubmitEvent<HTMLFormElement>) => void }) {
   return (
     <form onSubmit={onSubmit} className="mx-auto max-w-3xl pb-10">
       <p className="eyebrow text-primary">화면 내용</p><h3 className="display-font mt-1 text-4xl">사이트 문구 편집</h3><p className="mt-3 text-sm leading-6 text-muted-foreground">저장하면 방문자 화면에 바로 반영됩니다. 줄바꿈도 그대로 표시돼요.</p>
@@ -338,7 +382,7 @@ function SiteSettingsForm({ settings, busy, onSubmit }: { settings: SiteSettings
   );
 }
 
-function SecurityPanel({ busy, onSubmit }: { busy: boolean; onSubmit: (event: FormEvent<HTMLFormElement>) => void }) {
+function SecurityPanel({ busy, onSubmit }: { busy: boolean; onSubmit: (event: SubmitEvent<HTMLFormElement>) => void }) {
   return (
     <div className="mx-auto max-w-2xl pb-10">
       <p className="eyebrow text-primary">보안 설정</p><h3 className="display-font mt-1 text-4xl">관리자 보안</h3>
@@ -348,15 +392,15 @@ function SecurityPanel({ busy, onSubmit }: { busy: boolean; onSubmit: (event: Fo
   );
 }
 
-function UploadForm({ categories, busy, onSubmit }: { categories: Category[]; busy: boolean; onSubmit: (event: FormEvent<HTMLFormElement>) => void }) {
+function UploadForm({ categories, busy, onSubmit }: { categories: Category[]; busy: boolean; onSubmit: (event: SubmitEvent<HTMLFormElement>) => void }) {
   return <ProjectForm title="새 작품 올리기" categories={categories} busy={busy} onSubmit={onSubmit} upload/>;
 }
 
-function ProjectForm({ title, categories, project, busy, onSubmit, onCancel, upload = false }: { title: string; categories: Category[]; project?: Project; busy: boolean; onSubmit: (event: FormEvent<HTMLFormElement>) => void; onCancel?: () => void; upload?: boolean }) {
+function ProjectForm({ title, categories, project, busy, onSubmit, onCancel, upload = false }: { title: string; categories: Category[]; project?: Project; busy: boolean; onSubmit: (event: SubmitEvent<HTMLFormElement>) => void; onCancel?: () => void; upload?: boolean }) {
   return (
     <form onSubmit={onSubmit} className="space-y-4 border border-foreground/15 bg-card p-5">
       <div><p className="eyebrow text-primary">{upload ? '새 작품' : '작품 수정'}</p><h3 className="display-font text-3xl">{title}</h3></div>
-      <label className="grid min-h-28 cursor-pointer place-items-center border border-dashed border-foreground/30 bg-muted/40 text-center transition hover:border-primary hover:bg-primary/5"><span><Upload className="mx-auto mb-2"/><span className="text-xs font-semibold">{upload ? '이미지를 선택하세요 · 최대 15MB' : '새 이미지로 바꾸기 · 선택 사항'}</span></span><Input name="image" type="file" accept="image/*" required={upload} className="sr-only"/></label>
+      <label className="grid min-h-28 cursor-pointer place-items-center border border-dashed border-foreground/30 bg-muted/40 text-center transition hover:border-primary hover:bg-primary/5"><span><Upload className="mx-auto mb-2"/><span className="text-xs font-semibold">{upload ? '이미지를 선택하세요 · 최대 15MB' : '새 이미지로 바꾸기 · 선택 사항'}</span></span><Input name="image" type="file" accept="image/jpeg,image/png,image/webp,image/gif" required={upload} className="sr-only"/></label>
       <label className="form-label">작품 제목<Input name="title" defaultValue={project?.title} required className="mt-1 h-10 rounded-none" placeholder="작품 제목"/></label>
       <div className="grid grid-cols-2 gap-3"><label className="form-label">카테고리<select name="category" defaultValue={project?.category || categories[0]?.name} className="form-select">{categories.map((item) => <option key={item.id}>{item.name}</option>)}</select></label><label className="form-label">연도<Input name="year" defaultValue={project?.year || new Date().getFullYear()} className="mt-1 h-10 rounded-none"/></label></div>
       <label className="form-label">보이는 비율<select name="layout" defaultValue={project?.layout || 'portrait'} className="form-select"><option value="portrait">세로형</option><option value="landscape">가로형</option><option value="square">정사각형</option></select></label>

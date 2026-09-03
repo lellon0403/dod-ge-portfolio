@@ -1,11 +1,10 @@
-import { env } from 'cloudflare:workers';
+import { getSupabaseAdmin, isSupabaseConfigured } from '@/lib/supabase-admin';
 
-const COOKIE_NAME = 'dotzy_admin';
+const COOKIE_NAME = 'dodge_admin';
 const textEncoder = new TextEncoder();
 
 function runtimeSecret(name: 'ADMIN_CODE' | 'ADMIN_SESSION_SECRET') {
-  const runtime = env as Cloudflare.Env & { ADMIN_CODE?: string; ADMIN_SESSION_SECRET?: string };
-  return runtime[name]?.trim() || null;
+  return process.env[name]?.trim() || null;
 }
 
 function toHex(bytes: ArrayBuffer | Uint8Array) {
@@ -40,13 +39,16 @@ export async function deriveCodeHash(code: string, salt: string) {
 }
 
 async function currentCredential() {
-  return env.DB.prepare('SELECT salt, code_hash AS codeHash, version FROM admin_credentials WHERE id = ?')
-    .bind('main').first<{ salt: string; codeHash: string; version: number }>();
+  if (!isSupabaseConfigured()) return null;
+  const { data, error } = await getSupabaseAdmin().from('admin_credentials')
+    .select('salt, code_hash, version').eq('id', 'main').maybeSingle();
+  if (error) throw error;
+  return data as { salt: string; code_hash: string; version: number } | null;
 }
 
 export async function verifyAdminCode(candidate: string) {
   const stored = await currentCredential();
-  if (stored) return safeEqual(await deriveCodeHash(candidate, stored.salt), stored.codeHash);
+  if (stored) return safeEqual(await deriveCodeHash(candidate, stored.salt), stored.code_hash);
   const bootstrapCode = runtimeSecret('ADMIN_CODE');
   if (!bootstrapCode) return false;
   return safeEqual(await sha256(candidate), await sha256(bootstrapCode));
@@ -59,7 +61,7 @@ export async function credentialVersion() {
 export async function makeAdminToken(version = 0) {
   const secret = runtimeSecret('ADMIN_SESSION_SECRET');
   if (!secret) return null;
-  return `${version}.${await hmac(`dotzy-admin-session:${version}`, secret)}`;
+  return `${version}.${await hmac(`dodge-admin-session:${version}`, secret)}`;
 }
 
 function requestIsSameOrigin(request: Request) {
@@ -69,7 +71,7 @@ function requestIsSameOrigin(request: Request) {
 }
 
 export async function isAdminRequest(request: Request) {
-  if (!requestIsSameOrigin(request)) return false;
+  if (!requestIsSameOrigin(request) || !isSupabaseConfigured()) return false;
   const cookie = request.headers.get('cookie') || '';
   const found = cookie.split(';').map((part) => part.trim()).find((part) => part.startsWith(`${COOKIE_NAME}=`));
   if (!found) return false;
@@ -81,8 +83,8 @@ export async function isAdminRequest(request: Request) {
 }
 
 export async function requestFingerprint(request: Request) {
-  const address = request.headers.get('cf-connecting-ip') || request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'local';
-  const secret = runtimeSecret('ADMIN_SESSION_SECRET') || 'dotzy-rate-limit';
+  const address = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || request.headers.get('x-real-ip') || 'local';
+  const secret = runtimeSecret('ADMIN_SESSION_SECRET') || 'dodge-rate-limit';
   return hmac(`login:${address}`, secret);
 }
 
