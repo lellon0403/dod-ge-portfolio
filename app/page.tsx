@@ -150,7 +150,7 @@ export default function Home() {
       <footer className="flex flex-col gap-4 border-t border-foreground/15 px-5 py-7 text-[10px] font-semibold tracking-[0.14em] md:flex-row md:items-center md:justify-between md:px-10"><span>© {new Date().getFullYear()} {settings.artistName}</span><span>{settings.footerNote}</span></footer>
 
       {selected && <ArtworkModal work={selected} artistName={settings.artistName} onClose={() => setSelected(null)} />}
-      {adminOpen && <AdminOverlay authenticated={authenticated} setAuthenticated={setAuthenticated} projects={projects} categories={categories} settings={settings} onRefresh={refresh} onClose={() => setAdminOpen(false)} />}
+      {adminOpen && <AdminOverlay authenticated={authenticated} setAuthenticated={setAuthenticated} projects={projects} categories={categories} settings={settings} onSettingsSaved={setSettings} onRefresh={refresh} onClose={() => setAdminOpen(false)} />}
     </main>
   );
 }
@@ -166,8 +166,8 @@ function ArtworkModal({ work, artistName, onClose }: { work: Project; artistName
   );
 }
 
-function AdminOverlay({ authenticated, setAuthenticated, projects, categories, settings, onRefresh, onClose }: {
-  authenticated: boolean; setAuthenticated: (value: boolean) => void; projects: Project[]; categories: Category[]; settings: SiteSettings; onRefresh: () => Promise<void>; onClose: () => void;
+function AdminOverlay({ authenticated, setAuthenticated, projects, categories, settings, onSettingsSaved, onRefresh, onClose }: {
+  authenticated: boolean; setAuthenticated: (value: boolean) => void; projects: Project[]; categories: Category[]; settings: SiteSettings; onSettingsSaved: (settings: SiteSettings) => void; onRefresh: () => Promise<void>; onClose: () => void;
 }) {
   const [code, setCode] = useState('');
   const [error, setError] = useState('');
@@ -245,7 +245,8 @@ function AdminOverlay({ authenticated, setAuthenticated, projects, categories, s
     const response = await fetch('/api/settings', { method: 'PATCH', headers: { 'content-type': 'application/json' }, body: JSON.stringify(values) });
     const body = await response.json(); setBusy(false);
     if (!response.ok) return setError(body.error || '사이트 문구를 저장하지 못했어요.');
-    setNotice('사이트 문구를 저장했어요.'); await onRefresh();
+    if (body.settings) onSettingsSaved(body.settings);
+    setNotice('사이트 문구를 저장했어요. 화면에 바로 반영했습니다.');
   }
 
   async function changeCode(event: FormEvent<HTMLFormElement>) {
@@ -319,7 +320,7 @@ function SiteSettingsForm({ settings, busy, onSubmit }: { settings: SiteSettings
       <p className="eyebrow text-primary">화면 내용</p><h3 className="display-font mt-1 text-4xl">사이트 문구 편집</h3><p className="mt-3 text-sm leading-6 text-muted-foreground">저장하면 방문자 화면에 바로 반영됩니다. 줄바꿈도 그대로 표시돼요.</p>
       <div className="mt-7 grid gap-6 border border-foreground/15 bg-card p-5 md:grid-cols-2 md:p-7">
         <label className="form-label">활동명<Input name="artistName" defaultValue={settings.artistName} required className="mt-1 h-10 rounded-none"/></label>
-        <label className="form-label">그림 서명·이니셜<Input name="artistMark" defaultValue={settings.artistMark} required className="mt-1 h-10 rounded-none"/></label>
+        <label className="form-label">상단·첫 화면의 DG 표기<Input name="artistMark" defaultValue={settings.artistMark} required className="mt-1 h-10 rounded-none"/></label>
         <label className="form-label">작품 목록 작은 제목<Input name="worksEyebrow" defaultValue={settings.worksEyebrow} className="mt-1 h-10 rounded-none"/></label>
         <label className="form-label">작품 목록 큰 제목<Input name="worksTitle" defaultValue={settings.worksTitle} required className="mt-1 h-10 rounded-none"/></label>
         <label className="form-label">작품이 없을 때 제목<Input name="emptyTitle" defaultValue={settings.emptyTitle} className="mt-1 h-10 rounded-none"/></label>
