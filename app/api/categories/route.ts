@@ -24,6 +24,23 @@ export async function POST(request: Request) {
   return Response.json({ category }, { status: 201 });
 }
 
+export async function PATCH(request: Request) {
+  if (!(await isAdminRequest(request))) return Response.json({ error: '로그인이 필요해요.' }, { status: 401 });
+  await ensurePortfolioSchema();
+  const body = await request.json().catch(() => ({})) as { id?: string; oldName?: string; name?: string };
+  const name = body.name?.trim().toUpperCase();
+  if (!body.id || !body.oldName || !name) return Response.json({ error: '카테고리 이름을 확인해 주세요.' }, { status: 400 });
+  try {
+    await env.DB.batch([
+      env.DB.prepare('UPDATE categories SET name = ? WHERE id = ?').bind(name, body.id),
+      env.DB.prepare('UPDATE projects SET category = ? WHERE category = ?').bind(name, body.oldName),
+    ]);
+  } catch {
+    return Response.json({ error: '이미 있는 카테고리예요.' }, { status: 409 });
+  }
+  return Response.json({ saved: true });
+}
+
 export async function DELETE(request: Request) {
   if (!(await isAdminRequest(request))) return Response.json({ error: '로그인이 필요해요.' }, { status: 401 });
   await ensurePortfolioSchema();

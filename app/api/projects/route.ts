@@ -68,6 +68,32 @@ export async function POST(request: Request) {
 export async function PATCH(request: Request) {
   if (!(await isAdminRequest(request))) return Response.json({ error: '로그인이 필요해요.' }, { status: 401 });
   await ensurePortfolioSchema();
+  const isMultipart = request.headers.get('content-type')?.includes('multipart/form-data');
+  if (isMultipart) {
+    const form = await request.formData();
+    const id = String(form.get('id') || '');
+    const current = await env.DB.prepare('SELECT * FROM projects WHERE id = ?').bind(id).first<ProjectRow>();
+    if (!current) return Response.json({ error: '작품을 찾을 수 없어요.' }, { status: 404 });
+    const title = String(form.get('title') || '').trim() || current.title;
+    const category = String(form.get('category') || '').trim().toUpperCase() || current.category;
+    const year = String(form.get('year') || '').trim() || current.year;
+    const description = String(form.get('description') ?? current.description).trim();
+    const layoutCandidate = String(form.get('layout') || current.layout);
+    const layout = allowedLayouts.has(layoutCandidate) ? layoutCandidate : current.layout;
+    const file = form.get('image');
+    let imageKey = current.image_key;
+    if (file instanceof File && file.size > 0) {
+      if (!file.type.startsWith('image/')) return Response.json({ error: '이미지 파일만 올릴 수 있어요.' }, { status: 400 });
+      if (file.size > 15 * 1024 * 1024) return Response.json({ error: '이미지는 15MB보다 작아야 해요.' }, { status: 400 });
+      const extension = file.name.split('.').pop()?.replace(/[^a-zA-Z0-9]/g, '').slice(0, 8) || 'img';
+      imageKey = `works/${id}-${Date.now()}.${extension}`;
+      await env.FILES.put(imageKey, await file.arrayBuffer(), { httpMetadata: { contentType: file.type } });
+    }
+    await env.DB.prepare('UPDATE projects SET title = ?, category = ?, year = ?, description = ?, layout = ?, image_key = ? WHERE id = ?')
+      .bind(title, category, year, description, layout, imageKey, id).run();
+    if (imageKey !== current.image_key) await env.FILES.delete(current.image_key);
+    return Response.json({ project: toProject({ ...current, title, category, year, description, layout, image_key: imageKey }) });
+  }
   const body = await request.json().catch(() => ({})) as {
     id?: string; title?: string; category?: string; year?: string; description?: string; layout?: string;
     order?: string[];

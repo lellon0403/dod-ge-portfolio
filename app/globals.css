@@ -150,6 +150,10 @@ html { scroll-behavior: smooth; }
 .form-label { display: block; font-size: .7rem; font-weight: 700; letter-spacing: .08em; }
 .form-select { margin-top: .25rem; height: 2.5rem; width: 100%; border: 1px solid var(--border); background: var(--background); padding: 0 .65rem; font-size: .8rem; outline: none; }
 .form-select:focus { border-color: var(--ring); box-shadow: 0 0 0 3px color-mix(in oklab, var(--ring) 25%, transparent); }
+.security-card { display: flex; gap: .75rem; min-height: 5.5rem; border: 1px solid color-mix(in oklab, var(--foreground) 15%, transparent); background: var(--card); padding: 1rem; }
+.security-card > svg { flex: none; color: var(--primary); }
+.security-card strong { display: block; font-size: .78rem; }
+.security-card p { margin-top: .25rem; font-size: .7rem; line-height: 1.5; color: var(--muted-foreground); }
 .loading-mark { display: flex; min-height: 16rem; align-items: center; justify-content: center; gap: .5rem; }
 .loading-mark span { width: .65rem; height: .65rem; border-radius: 999px; background: var(--primary); animation: loading-bounce .8s infinite alternate; }
 .loading-mark span:nth-child(2) { animation-delay: .15s; }

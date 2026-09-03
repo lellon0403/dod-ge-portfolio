@@ -2,7 +2,7 @@
 
 import {
   ArrowDownRight, ArrowUpRight, Check, GripVertical, LockKeyhole, LogOut,
-  Menu, Pencil, Plus, Sparkles, Trash2, Upload, X,
+  Menu, Pencil, Plus, Save, ShieldCheck, SlidersHorizontal, Sparkles, Trash2, Upload, X,
 } from 'lucide-react';
 import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
@@ -18,20 +18,49 @@ type Project = {
   imageUrl: string;
   layout: 'portrait' | 'landscape' | 'square';
   sortOrder: number;
-  sample?: boolean;
-  position?: string;
 };
 
 type Category = { id: string; name: string; sortOrder: number };
 
-const sampleWorks: Project[] = [
-  { id: 'sample-1', title: 'Neon Signal', category: 'CHARACTER', year: '2026', description: '빛을 모으는 오리지널 캐릭터', imageUrl: '/og.png', layout: 'portrait', sortOrder: 0, sample: true, position: '8% 18%' },
-  { id: 'sample-2', title: 'Stream Mode!', category: 'FAN ART', year: '2026', description: '좋아하는 방송의 에너지를 담은 팬아트', imageUrl: '/og.png', layout: 'landscape', sortOrder: 1, sample: true, position: '52% 18%' },
-  { id: 'sample-3', title: 'Red Thread', category: 'ILLUSTRATION', year: '2025', description: '붉은 실과 검은 고양이', imageUrl: '/og.png', layout: 'portrait', sortOrder: 2, sample: true, position: '91% 18%' },
-  { id: 'sample-4', title: 'Lucky Bunny', category: 'CHARACTER', year: '2025', description: '행운을 배달하는 토끼 소녀', imageUrl: '/og.png', layout: 'square', sortOrder: 3, sample: true, position: '12% 66%' },
-  { id: 'sample-5', title: 'Midnight Chat', category: 'FAN ART', year: '2025', description: '새벽 채팅창의 푸른 온도', imageUrl: '/og.png', layout: 'square', sortOrder: 4, sample: true, position: '52% 64%' },
-  { id: 'sample-6', title: 'Umbrella Waltz', category: 'ILLUSTRATION', year: '2024', description: '비 오는 날의 캐릭터 키 비주얼', imageUrl: '/og.png', layout: 'portrait', sortOrder: 5, sample: true, position: '89% 64%' },
-];
+type SiteSettings = {
+  artistName: string;
+  artistMark: string;
+  roleLine: string;
+  heroNote: string;
+  heroTitle: string;
+  heroDescription: string;
+  worksEyebrow: string;
+  worksTitle: string;
+  emptyTitle: string;
+  emptyBody: string;
+  aboutEyebrow: string;
+  aboutHeadline: string;
+  aboutNote: string;
+  aboutBody: string;
+  location: string;
+  email: string;
+  footerNote: string;
+};
+
+const defaultSettings: SiteSettings = {
+  artistName: 'DodGe',
+  artistMark: 'DG',
+  roleLine: 'ILLUSTRATION · CHARACTER · FAN ART',
+  heroNote: 'draw what you love!',
+  heroTitle: 'FRAME\nBY\nFRAME.',
+  heroDescription: '',
+  worksEyebrow: '01 · ART ARCHIVE',
+  worksTitle: 'Selected works',
+  emptyTitle: '첫 작품을 기다리고 있어요.',
+  emptyBody: '관리자 화면에서 DodGe의 작품을 올리면 이곳에 바로 전시됩니다.',
+  aboutEyebrow: '02 · ABOUT',
+  aboutHeadline: 'Characters\nfeel alive\nwhen loved.',
+  aboutNote: "hello, I'm DodGe",
+  aboutBody: '애니메이션과 이야기, 방송 속 재미있는 순간에서 영감을 받아 캐릭터를 그립니다. 좋아하는 마음이 보이는 그림을 오래 그리고 싶어요.',
+  location: 'SEOUL, KOREA',
+  email: 'hello@example.com',
+  footerNote: 'MADE FOR EVERY FAVORITE MOMENT ✦',
+};
 
 function LoadingMark() {
   return <div className="loading-mark" aria-label="작품 불러오는 중"><span/><span/><span/></div>;
@@ -43,33 +72,35 @@ export default function Home() {
   const [authenticated, setAuthenticated] = useState(false);
   const [projects, setProjects] = useState<Project[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [settings, setSettings] = useState<SiteSettings>(defaultSettings);
   const [loaded, setLoaded] = useState(false);
   const [category, setCategory] = useState('ALL');
   const [selected, setSelected] = useState<Project | null>(null);
 
   async function refresh() {
-    const [projectResponse, categoryResponse, authResponse] = await Promise.all([
-      fetch('/api/projects'), fetch('/api/categories'), fetch('/api/auth'),
+    const [projectResponse, categoryResponse, authResponse, settingsResponse] = await Promise.all([
+      fetch('/api/projects'), fetch('/api/categories'), fetch('/api/auth'), fetch('/api/settings'),
     ]);
     if (projectResponse.ok) setProjects((await projectResponse.json()).projects);
     if (categoryResponse.ok) setCategories((await categoryResponse.json()).categories);
     if (authResponse.ok) setAuthenticated((await authResponse.json()).authenticated);
+    if (settingsResponse.ok) setSettings((await settingsResponse.json()).settings);
     setLoaded(true);
   }
 
   useEffect(() => { refresh().catch(() => setLoaded(true)); }, []);
+  useEffect(() => { document.title = `${settings.artistName} — Character & Fan Art`; }, [settings.artistName]);
 
-  const visibleWorks = projects.length ? projects : sampleWorks;
   const filterNames = useMemo(() => {
-    const source = projects.length ? categories.map((item) => item.name) : ['CHARACTER', 'FAN ART', 'ILLUSTRATION'];
+    const source = categories.map((item) => item.name);
     return ['ALL', ...source];
-  }, [categories, projects.length]);
-  const filtered = visibleWorks.filter((work) => category === 'ALL' || work.category === category);
+  }, [categories]);
+  const filtered = projects.filter((work) => category === 'ALL' || work.category === category);
 
   return (
     <main className="min-h-screen overflow-x-hidden bg-background text-foreground selection:bg-primary selection:text-primary-foreground">
       <header className="sticky top-0 z-40 flex h-[72px] items-center justify-between border-b border-white/15 bg-foreground/90 px-5 text-background backdrop-blur-xl md:px-10">
-        <a href="#top" className="display-font text-[27px] leading-none tracking-[-0.04em]">DAHYUN<span className="text-primary">✦</span></a>
+        <a href="#top" className="display-font text-[27px] leading-none tracking-[-0.04em]">{settings.artistName}<span className="text-primary">✦</span></a>
         <nav className="hidden items-center gap-8 text-[11px] font-semibold tracking-[0.14em] md:flex">
           <a className="nav-link" href="#works">WORKS</a><a className="nav-link" href="#about">ABOUT</a>
           <button className="nav-link flex items-center gap-1.5" onClick={() => setAdminOpen(true)}><LockKeyhole size={12}/> STUDIO</button>
@@ -85,24 +116,26 @@ export default function Home() {
 
       <section id="top" className="hero-grid relative min-h-[calc(100svh-72px)] overflow-hidden bg-foreground text-background">
         <div className="hero-copy relative z-10 flex flex-col justify-between px-5 py-10 md:px-10 md:py-14">
-          <div className="flex items-center gap-3 text-[10px] font-bold tracking-[0.16em] text-background/60"><span className="h-2 w-2 rounded-full bg-primary animate-pulse"/>ILLUSTRATION · CHARACTER · FAN ART</div>
+          <div className="flex items-center gap-3 text-[10px] font-bold tracking-[0.16em] text-background/60"><span className="h-2 w-2 rounded-full bg-primary animate-pulse"/>{settings.roleLine}</div>
           <div>
-            <p className="scribble mb-3 text-primary">draw what you love!</p>
-            <h1 className="display-font text-[clamp(4.3rem,10vw,9.6rem)] leading-[0.75] tracking-[-0.075em]">FRAME<br/><span className="ml-[7vw] italic text-secondary">BY</span><br/>FRAME.</h1>
-            <p className="mt-9 max-w-md text-sm leading-6 text-background/70">다현이 그리는 캐릭터와 좋아하는 크리에이터들의 순간.<br/>표정과 움직임, 애정을 한 장씩 모았습니다.</p>
+            <p className="scribble mb-3 text-primary">{settings.heroNote}</p>
+            <h1 className="display-font whitespace-pre-line text-[clamp(4.3rem,10vw,9.6rem)] leading-[0.75] tracking-[-0.075em]">{settings.heroTitle}</h1>
+            {settings.heroDescription && <p className="mt-9 max-w-md whitespace-pre-line text-sm leading-6 text-background/70">{settings.heroDescription}</p>}
           </div>
           <a href="#works" className="flex w-fit items-center gap-3 text-[11px] font-bold tracking-[0.14em]">VIEW THE ARCHIVE <span className="grid h-10 w-10 place-items-center rounded-full border border-background/40 transition hover:-rotate-12 hover:bg-primary hover:text-foreground"><ArrowDownRight size={18}/></span></a>
         </div>
-        <div className="hero-art relative min-h-[52vh] overflow-hidden border-l border-white/15">
-          <img src="/og.png" alt="다현 포트폴리오의 애니메이션 캐릭터 샘플 콜라주" className="absolute inset-0 h-full w-full object-cover" />
-          <div className="absolute inset-0 bg-gradient-to-t from-foreground/45 via-transparent to-transparent" />
-          <div className="absolute right-5 top-5 rotate-3 bg-primary px-3 py-2 text-[10px] font-black tracking-[0.13em] text-foreground shadow-[4px_4px_0_#18131f]">NEW DRAWINGS!</div>
+        <div className="hero-art relative grid min-h-[52vh] place-items-center overflow-hidden border-l border-white/15 bg-[#21172c]">
+          <div className="absolute inset-[8%] border border-background/15" />
+          <div className="absolute left-[12%] top-[18%] h-3 w-3 rounded-full bg-primary" />
+          <div className="absolute bottom-[16%] right-[10%] h-24 w-24 rounded-full border-[18px] border-secondary/70" />
+          <p className="display-font relative -rotate-6 text-[clamp(7rem,19vw,16rem)] italic tracking-[-0.08em] text-background/95">{settings.artistMark}</p>
+          <div className="absolute right-5 top-5 rotate-3 bg-primary px-3 py-2 text-[10px] font-black tracking-[0.13em] text-foreground shadow-[4px_4px_0_#18131f]">ORIGINAL WORKS</div>
         </div>
       </section>
 
       <section id="works" className="px-5 py-16 md:px-10 md:py-24">
         <div className="mb-12 flex flex-col justify-between gap-7 md:flex-row md:items-end">
-          <div><p className="eyebrow text-primary">01 · ART ARCHIVE</p><h2 className="display-font mt-2 text-5xl tracking-[-0.045em] md:text-7xl">Selected works</h2></div>
+          <div><p className="eyebrow text-primary">{settings.worksEyebrow}</p><h2 className="display-font mt-2 text-5xl tracking-[-0.045em] md:text-7xl">{settings.worksTitle}</h2></div>
           <div className="flex max-w-2xl flex-wrap gap-2" aria-label="카테고리 필터">
             {filterNames.map((item) => <button key={item} onClick={() => setCategory(item)} className={`category-pill ${category === item ? 'active' : ''}`}>{item}</button>)}
           </div>
@@ -113,53 +146,53 @@ export default function Home() {
             {filtered.map((work, index) => (
               <button key={work.id} onClick={() => setSelected(work)} className={`art-card group text-left ${work.layout === 'landscape' ? 'lg:col-span-7' : index % 3 === 0 ? 'lg:col-span-5' : 'lg:col-span-6'}`}>
                 <div className={`art-frame relative overflow-hidden bg-foreground ${work.layout === 'portrait' ? 'aspect-[4/5]' : work.layout === 'landscape' ? 'aspect-[7/5]' : 'aspect-square'}`}>
-                  <img src={work.imageUrl} alt={work.title} className="h-full w-full object-cover transition duration-700 group-hover:scale-[1.025]" style={{ objectPosition: work.position || 'center' }} />
+                  <img src={work.imageUrl} alt={work.title} className="h-full w-full object-cover transition duration-700 group-hover:scale-[1.025]" />
                   <div className="absolute inset-0 bg-foreground/0 transition group-hover:bg-foreground/10"/>
                   <span className="absolute bottom-4 right-4 grid h-10 w-10 translate-y-3 place-items-center rounded-full bg-primary text-foreground opacity-0 transition group-hover:translate-y-0 group-hover:opacity-100"><ArrowUpRight size={19}/></span>
-                  {work.sample && <span className="absolute left-3 top-3 bg-background px-2 py-1 text-[9px] font-black tracking-[0.1em] text-foreground">SAMPLE</span>}
                 </div>
                 <div className="mt-3 flex items-start justify-between gap-4 border-t border-foreground/25 pt-3"><div><h3 className="display-font text-2xl italic">{work.title}</h3><p className="mt-1 text-xs text-muted-foreground">{work.description}</p></div><p className="shrink-0 text-[9px] font-bold tracking-[0.12em] text-muted-foreground">{work.category}<br/>{work.year}</p></div>
               </button>
             ))}
           </div>
-        ) : <div className="grid min-h-64 place-items-center border border-dashed border-foreground/30 text-center"><div><Sparkles className="mx-auto mb-3 text-primary"/><p className="display-font text-2xl italic">첫 작품을 기다리고 있어요.</p></div></div>}
+        ) : <div className="grid min-h-72 place-items-center border border-dashed border-foreground/30 px-6 text-center"><div><Sparkles className="mx-auto mb-3 text-primary"/><p className="display-font text-2xl italic">{settings.emptyTitle}</p><p className="mt-2 max-w-md text-sm leading-6 text-muted-foreground">{settings.emptyBody}</p></div></div>}
       </section>
 
       <section id="about" className="grid border-t border-foreground/15 md:grid-cols-2">
-        <div className="relative overflow-hidden bg-secondary p-8 text-secondary-foreground md:p-14"><div className="absolute -right-12 -top-12 h-40 w-40 rounded-full border-[24px] border-primary/70"/><p className="eyebrow">02 · ABOUT</p><p className="display-font relative mt-16 text-[clamp(2.8rem,6vw,6rem)] leading-[0.88] tracking-[-0.05em]">Characters<br/>feel alive<br/><span className="italic text-background">when loved.</span></p></div>
-        <div className="flex flex-col justify-between gap-20 bg-foreground p-8 text-background md:p-14"><div><p className="scribble mb-6 text-primary">hello, I'm Dahyun</p><p className="max-w-lg text-lg leading-8 text-background/80">애니메이션과 이야기, 방송 속 재미있는 순간에서 영감을 받아 캐릭터를 그립니다. 좋아하는 마음이 보이는 그림을 오래 그리고 싶어요.</p></div><div className="flex items-end justify-between border-t border-background/20 pt-5 text-xs tracking-wider"><span>SEOUL, KOREA</span><a className="underline decoration-primary underline-offset-4" href="mailto:hello@example.com">GET IN TOUCH ↗</a></div></div>
+        <div className="relative overflow-hidden bg-secondary p-8 text-secondary-foreground md:p-14"><div className="absolute -right-12 -top-12 h-40 w-40 rounded-full border-[24px] border-primary/70"/><p className="eyebrow">{settings.aboutEyebrow}</p><p className="display-font relative mt-16 whitespace-pre-line text-[clamp(2.8rem,6vw,6rem)] leading-[0.88] tracking-[-0.05em]">{settings.aboutHeadline}</p></div>
+        <div className="flex flex-col justify-between gap-20 bg-foreground p-8 text-background md:p-14"><div><p className="scribble mb-6 text-primary">{settings.aboutNote}</p><p className="max-w-lg whitespace-pre-line text-lg leading-8 text-background/80">{settings.aboutBody}</p></div><div className="flex items-end justify-between border-t border-background/20 pt-5 text-xs tracking-wider"><span>{settings.location}</span><a className="underline decoration-primary underline-offset-4" href={`mailto:${settings.email}`}>GET IN TOUCH ↗</a></div></div>
       </section>
 
-      <footer className="flex flex-col gap-4 border-t border-foreground/15 px-5 py-7 text-[10px] font-semibold tracking-[0.14em] md:flex-row md:items-center md:justify-between md:px-10"><span>© 2026 DAHYUN STUDIO</span><span>MADE FOR EVERY FAVORITE MOMENT ✦</span></footer>
+      <footer className="flex flex-col gap-4 border-t border-foreground/15 px-5 py-7 text-[10px] font-semibold tracking-[0.14em] md:flex-row md:items-center md:justify-between md:px-10"><span>© {new Date().getFullYear()} {settings.artistName} STUDIO</span><span>{settings.footerNote}</span></footer>
 
-      {selected && <ArtworkModal work={selected} onClose={() => setSelected(null)} />}
-      {adminOpen && <AdminOverlay authenticated={authenticated} setAuthenticated={setAuthenticated} projects={projects} categories={categories} onRefresh={refresh} onClose={() => setAdminOpen(false)} />}
+      {selected && <ArtworkModal work={selected} artistName={settings.artistName} onClose={() => setSelected(null)} />}
+      {adminOpen && <AdminOverlay authenticated={authenticated} setAuthenticated={setAuthenticated} projects={projects} categories={categories} settings={settings} onRefresh={refresh} onClose={() => setAdminOpen(false)} />}
     </main>
   );
 }
 
-function ArtworkModal({ work, onClose }: { work: Project; onClose: () => void }) {
+function ArtworkModal({ work, artistName, onClose }: { work: Project; artistName: string; onClose: () => void }) {
   return (
     <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label={work.title} onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
       <div className="grid max-h-[92vh] w-full max-w-6xl overflow-auto bg-foreground text-background md:grid-cols-[1.35fr_.65fr]">
-        <div className="grid min-h-[45vh] place-items-center bg-black/25"><img src={work.imageUrl} alt={work.title} className="max-h-[82vh] w-full object-contain" style={{ objectPosition: work.position || 'center' }}/></div>
-        <div className="flex flex-col justify-between p-7 md:p-10"><button aria-label="닫기" onClick={onClose} className="ml-auto"><X/></button><div className="py-14"><p className="eyebrow text-primary">{work.category} · {work.year}</p><h2 className="display-font mt-3 text-5xl italic">{work.title}</h2><p className="mt-6 leading-7 text-background/65">{work.description || '다현의 아트 아카이브에 기록된 작업입니다.'}</p></div><p className="text-[10px] tracking-[0.14em] text-background/45">DAHYUN ART ARCHIVE</p></div>
+        <div className="grid min-h-[45vh] place-items-center bg-black/25"><img src={work.imageUrl} alt={work.title} className="max-h-[82vh] w-full object-contain"/></div>
+        <div className="flex flex-col justify-between p-7 md:p-10"><button aria-label="닫기" onClick={onClose} className="ml-auto"><X/></button><div className="py-14"><p className="eyebrow text-primary">{work.category} · {work.year}</p><h2 className="display-font mt-3 text-5xl italic">{work.title}</h2>{work.description && <p className="mt-6 leading-7 text-background/65">{work.description}</p>}</div><p className="text-[10px] tracking-[0.14em] text-background/45">{artistName} ART ARCHIVE</p></div>
       </div>
     </div>
   );
 }
 
-function AdminOverlay({ authenticated, setAuthenticated, projects, categories, onRefresh, onClose }: {
-  authenticated: boolean; setAuthenticated: (value: boolean) => void; projects: Project[]; categories: Category[]; onRefresh: () => Promise<void>; onClose: () => void;
+function AdminOverlay({ authenticated, setAuthenticated, projects, categories, settings, onRefresh, onClose }: {
+  authenticated: boolean; setAuthenticated: (value: boolean) => void; projects: Project[]; categories: Category[]; settings: SiteSettings; onRefresh: () => Promise<void>; onClose: () => void;
 }) {
   const [code, setCode] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
-  const [tab, setTab] = useState<'works' | 'categories'>('works');
+  const [tab, setTab] = useState<'works' | 'categories' | 'site' | 'security'>('works');
   const [editing, setEditing] = useState<Project | null>(null);
   const [newCategory, setNewCategory] = useState('');
   const [dragId, setDragId] = useState<string | null>(null);
   const [ordered, setOrdered] = useState(projects);
+  const [notice, setNotice] = useState('');
 
   useEffect(() => setOrdered(projects), [projects]);
 
@@ -184,10 +217,11 @@ function AdminOverlay({ authenticated, setAuthenticated, projects, categories, o
   async function saveEdit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); if (!editing) return; setBusy(true); setError('');
     const form = new FormData(event.currentTarget);
-    const response = await fetch('/api/projects', { method: 'PATCH', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ id: editing.id, title: form.get('title'), category: form.get('category'), year: form.get('year'), description: form.get('description'), layout: form.get('layout') }) });
+    form.set('id', editing.id);
+    const response = await fetch('/api/projects', { method: 'PATCH', body: form });
     const body = await response.json(); setBusy(false);
     if (!response.ok) return setError(body.error || '수정하지 못했어요.');
-    setEditing(null); await onRefresh();
+    setEditing(null); setNotice('작품 정보를 저장했어요.'); await onRefresh();
   }
 
   async function removeProject(id: string) {
@@ -215,6 +249,33 @@ function AdminOverlay({ authenticated, setAuthenticated, projects, categories, o
     const body = await response.json(); if (!response.ok) setError(body.error); else await onRefresh();
   }
 
+  async function renameCategory(category: Category, name: string) {
+    const response = await fetch('/api/categories', { method: 'PATCH', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ id: category.id, oldName: category.name, name }) });
+    const body = await response.json(); if (!response.ok) setError(body.error); else { setNotice('카테고리 이름을 바꿨어요.'); await onRefresh(); }
+  }
+
+  async function saveSettings(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault(); setBusy(true); setError(''); setNotice('');
+    const values = Object.fromEntries(new FormData(event.currentTarget).entries());
+    const response = await fetch('/api/settings', { method: 'PATCH', headers: { 'content-type': 'application/json' }, body: JSON.stringify(values) });
+    const body = await response.json(); setBusy(false);
+    if (!response.ok) return setError(body.error || '사이트 문구를 저장하지 못했어요.');
+    setNotice('사이트 문구를 저장했어요.'); await onRefresh();
+  }
+
+  async function changeCode(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault(); setBusy(true); setError(''); setNotice('');
+    const form = new FormData(event.currentTarget);
+    const currentCode = String(form.get('currentCode') || '');
+    const newCode = String(form.get('newCode') || '');
+    const confirmCode = String(form.get('confirmCode') || '');
+    if (newCode !== confirmCode) { setBusy(false); return setError('새 코드가 서로 일치하지 않아요.'); }
+    const response = await fetch('/api/auth', { method: 'PATCH', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ currentCode, newCode }) });
+    const body = await response.json(); setBusy(false);
+    if (!response.ok) return setError(body.error || '관리자 코드를 바꾸지 못했어요.');
+    event.currentTarget.reset(); setNotice('관리자 코드를 변경했어요. 새 코드만 안전한 곳에 보관해 주세요.');
+  }
+
   return (
     <div className="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="admin-title" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
       {!authenticated ? (
@@ -228,25 +289,79 @@ function AdminOverlay({ authenticated, setAuthenticated, projects, categories, o
         </form>
       ) : (
         <div className="admin-panel h-[92vh] w-full max-w-6xl overflow-hidden bg-background text-foreground shadow-2xl">
-          <header className="flex h-16 items-center justify-between border-b border-foreground/15 px-5 md:px-7"><div><p className="eyebrow text-primary">DAHYUN STUDIO</p><h2 id="admin-title" className="display-font text-2xl">포트폴리오 관리</h2></div><div className="flex items-center gap-1"><Button variant="ghost" size="sm" onClick={logout}><LogOut/> 로그아웃</Button><Button variant="ghost" size="icon" onClick={onClose} aria-label="닫기"><X/></Button></div></header>
+          <header className="flex h-16 items-center justify-between border-b border-foreground/15 px-5 md:px-7"><div><p className="eyebrow text-primary">{settings.artistName} STUDIO</p><h2 id="admin-title" className="display-font text-2xl">포트폴리오 관리</h2></div><div className="flex items-center gap-1"><Button variant="ghost" size="sm" onClick={logout}><LogOut/> 로그아웃</Button><Button variant="ghost" size="icon" onClick={onClose} aria-label="닫기"><X/></Button></div></header>
           <div className="grid h-[calc(92vh-64px)] md:grid-cols-[260px_1fr]">
-            <aside className="border-b border-foreground/15 bg-foreground p-4 text-background md:border-b-0 md:border-r md:p-6"><p className="mb-3 text-[10px] font-bold tracking-[0.16em] text-background/45">MANAGE</p><button onClick={() => setTab('works')} className={`admin-nav ${tab === 'works' ? 'active' : ''}`}><Upload size={16}/>작품 관리</button><button onClick={() => setTab('categories')} className={`admin-nav ${tab === 'categories' ? 'active' : ''}`}><Sparkles size={16}/>카테고리</button><div className="mt-8 border-t border-background/15 pt-5 text-xs leading-5 text-background/55">작품 카드를 끌어다 놓으면 방문자에게 보이는 순서가 바로 바뀝니다.</div></aside>
+            <aside className="border-b border-foreground/15 bg-foreground p-4 text-background md:border-b-0 md:border-r md:p-6"><p className="mb-3 text-[10px] font-bold tracking-[0.16em] text-background/45">MANAGE</p><button onClick={() => setTab('works')} className={`admin-nav ${tab === 'works' ? 'active' : ''}`}><Upload size={16}/>작품 관리</button><button onClick={() => setTab('categories')} className={`admin-nav ${tab === 'categories' ? 'active' : ''}`}><Sparkles size={16}/>카테고리</button><button onClick={() => setTab('site')} className={`admin-nav ${tab === 'site' ? 'active' : ''}`}><SlidersHorizontal size={16}/>사이트 문구</button><button onClick={() => setTab('security')} className={`admin-nav ${tab === 'security' ? 'active' : ''}`}><ShieldCheck size={16}/>보안 설정</button><div className="mt-8 border-t border-background/15 pt-5 text-xs leading-5 text-background/55">작품 카드를 끌어다 놓으면 방문자에게 보이는 순서가 바로 바뀝니다. 모든 변경은 서버에 안전하게 저장됩니다.</div></aside>
             <div className="overflow-y-auto p-5 md:p-8">
               {error && <div className="mb-5 flex items-center justify-between bg-destructive/10 p-3 text-sm text-destructive"><span>{error}</span><button onClick={() => setError('')}><X size={16}/></button></div>}
-              {tab === 'works' ? (
+              {notice && <div className="mb-5 flex items-center justify-between bg-primary/15 p-3 text-sm"><span className="flex items-center gap-2"><Check size={16}/>{notice}</span><button onClick={() => setNotice('')}><X size={16}/></button></div>}
+              {tab === 'works' && (
                 <div className="grid gap-8 lg:grid-cols-[minmax(280px,360px)_1fr]">
                   {editing ? <ProjectForm title="작품 정보 수정" categories={categories} project={editing} busy={busy} onSubmit={saveEdit} onCancel={() => setEditing(null)} /> : <UploadForm categories={categories} busy={busy} onSubmit={upload} />}
                   <div><div className="mb-4 flex items-center justify-between"><div><p className="eyebrow">DISPLAY ORDER</p><h3 className="display-font text-3xl">작품 순서</h3></div><span className="text-xs text-muted-foreground">{ordered.length} works</span></div>
                     {ordered.length ? <div className="space-y-2">{ordered.map((work) => <div key={work.id} draggable onDragStart={() => setDragId(work.id)} onDragOver={(event) => event.preventDefault()} onDrop={() => dropOn(work.id)} className="flex cursor-grab items-center gap-3 border border-foreground/15 bg-card p-2 active:cursor-grabbing"><GripVertical className="shrink-0 text-muted-foreground" size={17}/><img src={work.imageUrl} alt="" className="h-14 w-14 shrink-0 object-cover"/><div className="min-w-0 flex-1"><p className="truncate font-semibold">{work.title}</p><p className="text-[10px] tracking-wider text-muted-foreground">{work.category} · {work.year}</p></div><Button variant="ghost" size="icon" onClick={() => setEditing(work)} aria-label="수정"><Pencil/></Button><Button variant="destructive" size="icon" onClick={() => removeProject(work.id)} aria-label="삭제"><Trash2/></Button></div>)}</div> : <div className="border border-dashed border-foreground/25 p-10 text-center text-sm text-muted-foreground">아직 올린 작품이 없어요.<br/>왼쪽 폼에서 첫 작품을 추가해 보세요.</div>}
                   </div>
                 </div>
-              ) : (
-                <div className="mx-auto max-w-xl"><p className="eyebrow text-primary">ORGANIZE</p><h3 className="display-font mt-1 text-4xl">카테고리 관리</h3><p className="mt-3 text-sm leading-6 text-muted-foreground">그림 스타일에 맞춰 카테고리를 추가하세요. 사용 중인 카테고리는 작품을 다른 곳으로 옮긴 뒤 삭제할 수 있어요.</p><form onSubmit={addCategory} className="mt-7 flex gap-2"><Input value={newCategory} onChange={(event) => setNewCategory(event.target.value)} placeholder="예: CHIBI, COMMISSION" className="h-11 rounded-none"/><Button className="h-11 rounded-none"><Plus/>추가</Button></form><div className="mt-5 divide-y divide-foreground/15 border-y border-foreground/15">{categories.map((item) => <div key={item.id} className="flex items-center justify-between py-4"><span className="font-bold tracking-wider">{item.name}</span><Button variant="ghost" size="icon" onClick={() => removeCategory(item)} aria-label={`${item.name} 삭제`}><Trash2/></Button></div>)}</div></div>
               )}
+              {tab === 'categories' && (
+                <div className="mx-auto max-w-xl"><p className="eyebrow text-primary">ORGANIZE</p><h3 className="display-font mt-1 text-4xl">카테고리 관리</h3><p className="mt-3 text-sm leading-6 text-muted-foreground">새 카테고리를 만들거나 이름을 바로 수정할 수 있어요. 사용 중인 카테고리를 삭제하려면 먼저 작품을 다른 카테고리로 옮겨 주세요.</p><form onSubmit={addCategory} className="mt-7 flex gap-2"><Input value={newCategory} onChange={(event) => setNewCategory(event.target.value)} placeholder="예: CHIBI, COMMISSION" className="h-11 rounded-none"/><Button className="h-11 rounded-none"><Plus/>추가</Button></form><div className="mt-5 divide-y divide-foreground/15 border-y border-foreground/15">{categories.map((item) => <CategoryRow key={item.id} category={item} onRename={renameCategory} onRemove={removeCategory}/>)}</div></div>
+              )}
+              {tab === 'site' && <SiteSettingsForm key={JSON.stringify(settings)} settings={settings} busy={busy} onSubmit={saveSettings}/>}
+              {tab === 'security' && <SecurityPanel busy={busy} onSubmit={changeCode}/>}
             </div>
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+function CategoryRow({ category, onRename, onRemove }: { category: Category; onRename: (category: Category, name: string) => Promise<void>; onRemove: (category: Category) => Promise<void> }) {
+  const [editing, setEditing] = useState(false);
+  const [name, setName] = useState(category.name);
+  return (
+    <div className="flex items-center gap-2 py-3">
+      {editing ? <Input value={name} onChange={(event) => setName(event.target.value)} className="h-9 rounded-none font-bold tracking-wider" autoFocus/> : <span className="flex-1 font-bold tracking-wider">{category.name}</span>}
+      {editing ? <><Button size="icon" onClick={async () => { await onRename(category, name); setEditing(false); }} aria-label="이름 저장"><Check/></Button><Button variant="ghost" size="icon" onClick={() => { setName(category.name); setEditing(false); }} aria-label="취소"><X/></Button></> : <Button variant="ghost" size="icon" onClick={() => setEditing(true)} aria-label={`${category.name} 이름 수정`}><Pencil/></Button>}
+      {!editing && <Button variant="ghost" size="icon" onClick={() => onRemove(category)} aria-label={`${category.name} 삭제`}><Trash2/></Button>}
+    </div>
+  );
+}
+
+function SiteSettingsForm({ settings, busy, onSubmit }: { settings: SiteSettings; busy: boolean; onSubmit: (event: FormEvent<HTMLFormElement>) => void }) {
+  return (
+    <form onSubmit={onSubmit} className="mx-auto max-w-3xl pb-10">
+      <p className="eyebrow text-primary">SITE CONTENT</p><h3 className="display-font mt-1 text-4xl">사이트 문구 편집</h3><p className="mt-3 text-sm leading-6 text-muted-foreground">저장하면 방문자 화면에 바로 반영됩니다. 줄바꿈도 그대로 표시돼요.</p>
+      <div className="mt-7 grid gap-6 border border-foreground/15 bg-card p-5 md:grid-cols-2 md:p-7">
+        <label className="form-label">활동명<Input name="artistName" defaultValue={settings.artistName} required className="mt-1 h-10 rounded-none"/></label>
+        <label className="form-label">그림 서명·이니셜<Input name="artistMark" defaultValue={settings.artistMark} required className="mt-1 h-10 rounded-none"/></label>
+        <label className="form-label md:col-span-2">활동 분야 한 줄<Input name="roleLine" defaultValue={settings.roleLine} className="mt-1 h-10 rounded-none"/></label>
+        <label className="form-label">첫 화면 손글씨 문구<Input name="heroNote" defaultValue={settings.heroNote} className="mt-1 h-10 rounded-none"/></label>
+        <label className="form-label">작품 목록 작은 제목<Input name="worksEyebrow" defaultValue={settings.worksEyebrow} className="mt-1 h-10 rounded-none"/></label>
+        <label className="form-label">첫 화면 큰 제목<Textarea name="heroTitle" defaultValue={settings.heroTitle} required className="mt-1 min-h-28 rounded-none"/></label>
+        <label className="form-label">첫 화면 짧은 설명 · 선택<Textarea name="heroDescription" defaultValue={settings.heroDescription} className="mt-1 min-h-28 rounded-none" placeholder="비워두면 표시되지 않아요"/></label>
+        <label className="form-label">작품 목록 큰 제목<Input name="worksTitle" defaultValue={settings.worksTitle} required className="mt-1 h-10 rounded-none"/></label>
+        <label className="form-label">작품이 없을 때 제목<Input name="emptyTitle" defaultValue={settings.emptyTitle} className="mt-1 h-10 rounded-none"/></label>
+        <label className="form-label md:col-span-2">작품이 없을 때 안내<Textarea name="emptyBody" defaultValue={settings.emptyBody} className="mt-1 min-h-20 rounded-none"/></label>
+        <label className="form-label">소개 작은 제목<Input name="aboutEyebrow" defaultValue={settings.aboutEyebrow} className="mt-1 h-10 rounded-none"/></label>
+        <label className="form-label">소개 손글씨 문구<Input name="aboutNote" defaultValue={settings.aboutNote} className="mt-1 h-10 rounded-none"/></label>
+        <label className="form-label">소개 큰 제목<Textarea name="aboutHeadline" defaultValue={settings.aboutHeadline} className="mt-1 min-h-28 rounded-none"/></label>
+        <label className="form-label">작가 소개글<Textarea name="aboutBody" defaultValue={settings.aboutBody} className="mt-1 min-h-28 rounded-none"/></label>
+        <label className="form-label">활동 지역<Input name="location" defaultValue={settings.location} className="mt-1 h-10 rounded-none"/></label>
+        <label className="form-label">연락 이메일<Input name="email" type="email" defaultValue={settings.email} className="mt-1 h-10 rounded-none"/></label>
+        <label className="form-label md:col-span-2">맨 아래 문구<Input name="footerNote" defaultValue={settings.footerNote} className="mt-1 h-10 rounded-none"/></label>
+        <Button disabled={busy} className="h-11 rounded-none md:col-span-2"><Save/>{busy ? '저장 중…' : '사이트 문구 저장'}</Button>
+      </div>
+    </form>
+  );
+}
+
+function SecurityPanel({ busy, onSubmit }: { busy: boolean; onSubmit: (event: FormEvent<HTMLFormElement>) => void }) {
+  return (
+    <div className="mx-auto max-w-2xl pb-10">
+      <p className="eyebrow text-primary">SECURITY</p><h3 className="display-font mt-1 text-4xl">관리자 보안</h3>
+      <div className="mt-6 grid gap-3 sm:grid-cols-2"><div className="security-card"><ShieldCheck/><div><strong>서버에서만 확인</strong><p>코드 원문은 화면 코드에 들어가지 않아요.</p></div></div><div className="security-card"><LockKeyhole/><div><strong>로그인 시도 제한</strong><p>반복해서 틀리면 일정 시간 잠깁니다.</p></div></div><div className="security-card"><Check/><div><strong>보안 쿠키</strong><p>로그인 정보는 다른 사이트에서 읽을 수 없어요.</p></div></div><div className="security-card"><Save/><div><strong>코드 해시 저장</strong><p>변경한 코드는 강한 해시로만 저장됩니다.</p></div></div></div>
+      <form onSubmit={onSubmit} className="mt-7 space-y-4 border border-foreground/15 bg-card p-5 md:p-7"><div><p className="eyebrow">CHANGE CODE</p><h4 className="display-font text-3xl">관리자 코드 변경</h4><p className="mt-2 text-xs leading-5 text-muted-foreground">4자리 코드도 사용할 수 있지만, 더 긴 코드를 쓰면 훨씬 안전합니다.</p></div><label className="form-label">현재 코드<Input name="currentCode" type="password" required className="mt-1 h-10 rounded-none" autoComplete="current-password"/></label><label className="form-label">새 코드<Input name="newCode" type="password" minLength={4} required className="mt-1 h-10 rounded-none" autoComplete="new-password"/></label><label className="form-label">새 코드 다시 입력<Input name="confirmCode" type="password" minLength={4} required className="mt-1 h-10 rounded-none" autoComplete="new-password"/></label><Button disabled={busy} className="h-11 w-full rounded-none"><ShieldCheck/>{busy ? '변경 중…' : '관리자 코드 변경'}</Button></form>
     </div>
   );
 }
@@ -259,7 +374,7 @@ function ProjectForm({ title, categories, project, busy, onSubmit, onCancel, upl
   return (
     <form onSubmit={onSubmit} className="space-y-4 border border-foreground/15 bg-card p-5">
       <div><p className="eyebrow text-primary">{upload ? 'ADD NEW' : 'EDIT'}</p><h3 className="display-font text-3xl">{title}</h3></div>
-      {upload && <label className="grid min-h-28 cursor-pointer place-items-center border border-dashed border-foreground/30 bg-muted/40 text-center transition hover:border-primary hover:bg-primary/5"><span><Upload className="mx-auto mb-2"/><span className="text-xs font-semibold">이미지를 선택하세요 · 최대 15MB</span></span><Input name="image" type="file" accept="image/*" required className="sr-only"/></label>}
+      <label className="grid min-h-28 cursor-pointer place-items-center border border-dashed border-foreground/30 bg-muted/40 text-center transition hover:border-primary hover:bg-primary/5"><span><Upload className="mx-auto mb-2"/><span className="text-xs font-semibold">{upload ? '이미지를 선택하세요 · 최대 15MB' : '새 이미지로 바꾸기 · 선택 사항'}</span></span><Input name="image" type="file" accept="image/*" required={upload} className="sr-only"/></label>
       <label className="form-label">작품 제목<Input name="title" defaultValue={project?.title} required className="mt-1 h-10 rounded-none" placeholder="작품 제목"/></label>
       <div className="grid grid-cols-2 gap-3"><label className="form-label">카테고리<select name="category" defaultValue={project?.category || categories[0]?.name} className="form-select">{categories.map((item) => <option key={item.id}>{item.name}</option>)}</select></label><label className="form-label">연도<Input name="year" defaultValue={project?.year || new Date().getFullYear()} className="mt-1 h-10 rounded-none"/></label></div>
       <label className="form-label">보이는 비율<select name="layout" defaultValue={project?.layout || 'portrait'} className="form-select"><option value="portrait">세로형</option><option value="landscape">가로형</option><option value="square">정사각형</option></select></label>
