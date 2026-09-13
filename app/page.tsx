@@ -72,6 +72,7 @@ export default function Home() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [adminOpen, setAdminOpen] = useState(false);
   const [authenticated, setAuthenticated] = useState(false);
+  const [setupRequired, setSetupRequired] = useState(false);
   const [projects, setProjects] = useState<Project[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [settings, setSettings] = useState<SiteSettings>(defaultSettings);
@@ -85,7 +86,11 @@ export default function Home() {
     ]);
     if (projectResponse.ok) setProjects((await projectResponse.json()).projects);
     if (categoryResponse.ok) setCategories((await categoryResponse.json()).categories);
-    if (authResponse.ok) setAuthenticated((await authResponse.json()).authenticated);
+    if (authResponse.ok) {
+      const auth = await authResponse.json();
+      setAuthenticated(auth.authenticated);
+      setSetupRequired(Boolean(auth.setupRequired));
+    }
     if (settingsResponse.ok) setSettings((await settingsResponse.json()).settings);
     setLoaded(true);
   }
@@ -100,59 +105,68 @@ export default function Home() {
   const filtered = projects.filter((work) => category === '전체' || work.category === category);
 
   return (
-    <main className="min-h-screen overflow-x-hidden bg-background text-foreground selection:bg-primary selection:text-primary-foreground">
-      <header className="sticky top-0 z-40 flex h-[72px] items-center justify-between border-b border-white/15 bg-foreground/90 px-5 text-background backdrop-blur-xl md:px-10">
-        <a href="#top" className="display-font text-[27px] leading-none tracking-[-0.04em]">{settings.artistMark}</a>
-        <nav className="hidden items-center gap-8 text-[11px] font-semibold tracking-[0.14em] md:flex">
-          <a className="nav-link" href="#works">작품</a><a className="nav-link" href="#about">소개</a>
-          <button className="nav-link flex items-center gap-1.5" onClick={() => setAdminOpen(true)}><LockKeyhole size={12}/> 관리자</button>
-        </nav>
-        <button aria-label="메뉴 열기" className="md:hidden" onClick={() => setMenuOpen(!menuOpen)}>{menuOpen ? <X/> : <Menu/>}</button>
+    <main id="top" className="portfolio-shell min-h-screen overflow-x-hidden bg-background text-foreground selection:bg-foreground selection:text-background">
+      <header className="mobile-header">
+        <a href="#top" className="display-font text-2xl tracking-[-0.04em]">{settings.artistMark}</a>
+        <button aria-label="메뉴 열기" onClick={() => setMenuOpen(!menuOpen)}>{menuOpen ? <X size={20}/> : <Menu size={20}/>}</button>
         {menuOpen && (
-          <div className="absolute inset-x-0 top-[71px] flex flex-col gap-5 border-b border-white/15 bg-foreground p-6 text-sm font-semibold tracking-widest md:hidden">
-            <a href="#works" onClick={() => setMenuOpen(false)}>작품</a><a href="#about" onClick={() => setMenuOpen(false)}>소개</a>
-            <button className="text-left" onClick={() => { setAdminOpen(true); setMenuOpen(false); }}>관리자</button>
+          <div className="mobile-menu">
+            <p className="menu-label">작품</p>
+            {filterNames.map((item) => <button key={item} onClick={() => { setCategory(item); setMenuOpen(false); }}>{item}</button>)}
+            <a href="#about" onClick={() => setMenuOpen(false)}>작가 소개</a>
+            <button onClick={() => { setAdminOpen(true); setMenuOpen(false); }}>관리자</button>
           </div>
         )}
       </header>
 
-      <section id="top" className="hero-mark grid min-h-[calc(100svh-72px)] place-items-center overflow-hidden bg-[#21172c] text-background">
-        <h1 className="display-font -rotate-6 text-[clamp(9rem,36vw,32rem)] italic leading-none tracking-[-0.1em] text-background/95">{settings.artistMark}</h1>
-      </section>
-
-      <section id="works" className="px-5 py-16 md:px-10 md:py-24">
-        <div className="mb-12 flex flex-col justify-between gap-7 md:flex-row md:items-end">
-          <div><p className="eyebrow text-primary">{settings.worksEyebrow}</p><h2 className="display-font mt-2 text-5xl tracking-[-0.045em] md:text-7xl">{settings.worksTitle}</h2></div>
-          <div className="flex max-w-2xl flex-wrap gap-2" aria-label="카테고리 필터">
-            {filterNames.map((item) => <button key={item} onClick={() => setCategory(item)} className={`category-pill ${category === item ? 'active' : ''}`}>{item}</button>)}
-          </div>
+      <aside className="portfolio-sidebar">
+        <div>
+          <a href="#top" className="sidebar-brand"><strong className="display-font">{settings.artistName}</strong><span>{settings.artistMark}</span></a>
+          <p className="sidebar-role">illustrator</p>
         </div>
-
-        {!loaded ? <LoadingMark/> : filtered.length ? (
-          <div className="grid grid-cols-1 gap-x-5 gap-y-12 sm:grid-cols-2 lg:grid-cols-12">
-            {filtered.map((work, index) => (
-              <button key={work.id} onClick={() => setSelected(work)} className={`art-card group text-left ${work.layout === 'landscape' ? 'lg:col-span-7' : index % 3 === 0 ? 'lg:col-span-5' : 'lg:col-span-6'}`}>
-                <div className={`art-frame relative overflow-hidden bg-foreground ${work.layout === 'portrait' ? 'aspect-[4/5]' : work.layout === 'landscape' ? 'aspect-[7/5]' : 'aspect-square'}`}>
-                  <img src={work.imageUrl} alt={work.title} className="h-full w-full object-cover transition duration-700 group-hover:scale-[1.025]" />
-                  <div className="absolute inset-0 bg-foreground/0 transition group-hover:bg-foreground/10"/>
-                  <span className="absolute bottom-4 right-4 grid h-10 w-10 translate-y-3 place-items-center rounded-full bg-primary text-foreground opacity-0 transition group-hover:translate-y-0 group-hover:opacity-100"><ArrowUpRight size={19}/></span>
-                </div>
-                <div className="mt-3 flex items-start justify-between gap-4 border-t border-foreground/25 pt-3"><div><h3 className="display-font text-2xl italic">{work.title}</h3><p className="mt-1 text-xs text-muted-foreground">{work.description}</p></div><p className="shrink-0 text-[9px] font-bold tracking-[0.12em] text-muted-foreground">{work.category}<br/>{work.year}</p></div>
-              </button>
-            ))}
+        <nav className="sidebar-navigation" aria-label="포트폴리오 메뉴">
+          <div>
+            <p className="menu-label">작품</p>
+            {filterNames.map((item) => <button key={item} onClick={() => setCategory(item)} className={category === item ? 'active' : ''}>{item}</button>)}
           </div>
-        ) : <div className="grid min-h-72 place-items-center border border-dashed border-foreground/30 px-6 text-center"><div><Sparkles className="mx-auto mb-3 text-primary"/><p className="display-font text-2xl italic">{settings.emptyTitle}</p><p className="mt-2 max-w-md text-sm leading-6 text-muted-foreground">{settings.emptyBody}</p></div></div>}
-      </section>
+          <div><p className="menu-label">정보</p><a href="#about">작가 소개</a><a href={`mailto:${settings.email}`}>문의하기</a></div>
+          <button className="admin-entry" onClick={() => setAdminOpen(true)}><LockKeyhole size={12}/> 관리자</button>
+        </nav>
+        <p className="sidebar-location">{settings.location}</p>
+      </aside>
 
-      <section id="about" className="grid border-t border-foreground/15 md:grid-cols-2">
-        <div className="relative overflow-hidden bg-secondary p-8 text-secondary-foreground md:p-14"><div className="absolute -right-12 -top-12 h-40 w-40 rounded-full border-[24px] border-primary/70"/><p className="eyebrow">{settings.aboutEyebrow}</p><p className="display-font relative mt-16 whitespace-pre-line text-[clamp(2.8rem,6vw,6rem)] leading-[0.88] tracking-[-0.05em]">{settings.aboutHeadline}</p></div>
-        <div className="flex flex-col justify-between gap-20 bg-foreground p-8 text-background md:p-14"><div><p className="scribble mb-6 text-primary">{settings.aboutNote}</p><p className="max-w-lg whitespace-pre-line text-lg leading-8 text-background/80">{settings.aboutBody}</p></div><div className="flex items-end justify-between border-t border-background/20 pt-5 text-xs tracking-wider"><span>{settings.location}</span><a className="underline decoration-primary underline-offset-4" href={`mailto:${settings.email}`}>문의하기 ↗</a></div></div>
-      </section>
+      <div className="portfolio-content">
+        <section id="works" className="works-section">
+          <header className="blog-heading">
+            <div><p>{settings.worksEyebrow}</p><h1>{category === '전체' ? 'WORKS' : category}</h1></div>
+            <p className="blog-role">{settings.roleLine}</p>
+          </header>
 
-      <footer className="flex flex-col gap-4 border-t border-foreground/15 px-5 py-7 text-[10px] font-semibold tracking-[0.14em] md:flex-row md:items-center md:justify-between md:px-10"><span>© {new Date().getFullYear()} {settings.artistName}</span><span>{settings.footerNote}</span></footer>
+          {!loaded ? <LoadingMark/> : filtered.length ? (
+            <div className="blog-art-grid">
+              {filtered.map((work) => (
+                <button key={work.id} onClick={() => setSelected(work)} className="blog-art-card group">
+                  <div className={`blog-art-image ${work.layout}`}>
+                    <img src={work.imageUrl} alt={work.title} />
+                    <span><ArrowUpRight size={17}/></span>
+                  </div>
+                  <div className="blog-art-meta"><div><h2>{work.title}</h2><p>{work.category}</p></div><time>{work.year}</time></div>
+                </button>
+              ))}
+            </div>
+          ) : <div className="blog-empty"><p>{settings.emptyTitle}</p><span>{settings.emptyBody}</span></div>}
+        </section>
+
+        <section id="about" className="blog-about">
+          <p className="menu-label">{settings.aboutEyebrow}</p>
+          <div className="blog-about-grid"><h2 className="display-font whitespace-pre-line">{settings.aboutHeadline}</h2><div><p className="about-note">{settings.aboutNote}</p><p className="whitespace-pre-line">{settings.aboutBody}</p><a href={`mailto:${settings.email}`}>{settings.email} ↗</a></div></div>
+        </section>
+
+        <footer className="blog-footer"><span>© {new Date().getFullYear()} {settings.artistName}</span><a href="#top">↑ 맨 위로</a><span>{settings.footerNote}</span></footer>
+      </div>
 
       {selected && <ArtworkModal work={selected} artistName={settings.artistName} onClose={() => setSelected(null)} />}
-      {adminOpen && <AdminOverlay authenticated={authenticated} setAuthenticated={setAuthenticated} projects={projects} categories={categories} settings={settings} onSettingsSaved={setSettings} onRefresh={refresh} onClose={() => setAdminOpen(false)} />}
+      {adminOpen && <AdminOverlay authenticated={authenticated} setupRequired={setupRequired} setAuthenticated={setAuthenticated} projects={projects} categories={categories} settings={settings} onSettingsSaved={setSettings} onRefresh={refresh} onClose={() => setAdminOpen(false)} />}
     </main>
   );
 }
@@ -168,8 +182,8 @@ function ArtworkModal({ work, artistName, onClose }: { work: Project; artistName
   );
 }
 
-function AdminOverlay({ authenticated, setAuthenticated, projects, categories, settings, onSettingsSaved, onRefresh, onClose }: {
-  authenticated: boolean; setAuthenticated: (value: boolean) => void; projects: Project[]; categories: Category[]; settings: SiteSettings; onSettingsSaved: (settings: SiteSettings) => void; onRefresh: () => Promise<void>; onClose: () => void;
+function AdminOverlay({ authenticated, setupRequired, setAuthenticated, projects, categories, settings, onSettingsSaved, onRefresh, onClose }: {
+  authenticated: boolean; setupRequired: boolean; setAuthenticated: (value: boolean) => void; projects: Project[]; categories: Category[]; settings: SiteSettings; onSettingsSaved: (settings: SiteSettings) => void; onRefresh: () => Promise<void>; onClose: () => void;
 }) {
   const [code, setCode] = useState('');
   const [error, setError] = useState('');
@@ -313,9 +327,10 @@ function AdminOverlay({ authenticated, setAuthenticated, projects, categories, s
           <div className="mb-10 flex items-start justify-between"><div><p className="eyebrow text-primary">관리자 로그인</p><h2 id="admin-title" className="display-font mt-2 text-4xl">관리 화면 열기</h2></div><button type="button" aria-label="닫기" onClick={onClose}><X size={20}/></button></div>
           <label className="text-xs font-semibold tracking-wider" htmlFor="admin-code">관리자 코드</label>
           <Input id="admin-code" type="password" value={code} onChange={(event) => setCode(event.target.value)} placeholder="코드를 입력하세요" className="mt-2 h-12 rounded-none border-foreground/25 px-4" autoFocus />
+          {setupRequired && <p className="mt-3 border border-destructive/30 bg-destructive/5 p-3 text-xs leading-5 text-destructive">아직 Supabase 환경 변수가 연결되지 않았어요. Vercel 설정을 확인한 뒤 다시 배포해 주세요.</p>}
           {error && <p className="mt-3 text-sm text-destructive">{error}</p>}
-          <Button disabled={busy} className="mt-4 h-12 w-full rounded-none font-bold tracking-[0.14em]">{busy ? '확인 중…' : '관리 화면 열기'}</Button>
-          <p className="mt-4 text-center text-xs leading-5 text-muted-foreground">로그인하면 작품 추가, 정보 수정, 순서 변경을 할 수 있어요.</p>
+          <Button disabled={busy || setupRequired} className="mt-4 h-12 w-full rounded-none font-bold tracking-[0.14em]">{busy ? '확인 중…' : '관리 화면 열기'}</Button>
+          <p className="mt-4 text-center text-xs leading-5 text-muted-foreground">로그인이 되지 않으면 Vercel의 ADMIN_CODE를 확인하고 재배포해 주세요.</p>
         </form>
       ) : (
         <div className="admin-panel h-[92vh] w-full max-w-6xl overflow-hidden bg-background text-foreground shadow-2xl">

@@ -48,3 +48,17 @@ Vercel에서 GitHub 저장소를 Import한 뒤 위 환경 변수를 Production, 
 다현 님 계정으로 이전할 때는 [`TRANSFER.md`](TRANSFER.md)를 따라 진행하면 됩니다.
 
 다현 님이 직접 계정 연결과 배포를 시작할 때는 [`DAHYUN_START.md`](DAHYUN_START.md)를 먼저 읽으면 됩니다.
+
+## 관리 기능이 작동하지 않을 때
+
+1. `/api/categories`와 `/api/settings`가 정상 응답하는지 확인합니다.
+2. 관리자 로그인이 안 되면 Vercel의 `ADMIN_CODE`, `ADMIN_SESSION_SECRET`을 확인합니다.
+3. 환경 변수를 수정한 뒤에는 반드시 Production을 다시 배포합니다.
+4. 이전에 관리자 코드를 변경한 적이 있다면 변경한 코드로 로그인합니다.
+5. 초기 코드로 되돌릴 때만 Supabase SQL Editor에서 아래 명령을 실행한 뒤 다시 배포합니다.
+
+```sql
+delete from public.admin_credentials where id = 'main';
+```
+
+이 명령은 관리자 코드 기록만 초기화하며 작품과 사이트 문구는 삭제하지 않습니다.
