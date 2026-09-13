@@ -46,3 +46,5 @@ npm run dev
 Vercel에서 GitHub 저장소를 Import한 뒤 위 환경 변수를 Production, Preview, Development에 등록합니다. 이후 `main` 브랜치에 푸시하면 자동으로 다시 배포됩니다.
 
 다현 님 계정으로 이전할 때는 [`TRANSFER.md`](TRANSFER.md)를 따라 진행하면 됩니다.
+
+다현 님이 직접 계정 연결과 배포를 시작할 때는 [`DAHYUN_START.md`](DAHYUN_START.md)를 먼저 읽으면 됩니다.
